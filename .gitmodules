@@ -1,0 +1,3 @@
+[submodule "luci-sso"]
+	path = luci-sso
+	url = https://github.com/Ogglord/luci-sso.git
