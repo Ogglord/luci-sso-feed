@@ -48,12 +48,19 @@ jobs:
           ./scripts/feeds update luci_sso
           ./scripts/feeds install -a -p luci_sso
 
+      - name: Inspect SDK openssl
+        working-directory: ${{ env.SDK_DIR }}
+        run: |
+          echo "=== package/libs/openssl ===" && ls package/libs/openssl/ 2>/dev/null || echo "not in SDK core"
+          echo "=== staged headers ===" && ls staging_dir/target-*/usr/include/openssl/ 2>/dev/null | head -5 || echo "not staged"
+          echo "=== staged libs ===" && ls staging_dir/target-*/usr/lib/libssl* staging_dir/target-*/usr/lib/libcrypto* 2>/dev/null || echo "no staged libs"
+
       - name: Build packages
         working-directory: ${{ env.SDK_DIR }}
         run: |
           printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_CCACHE=y\nCONFIG_PACKAGE_libopenssl3=m\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
           make defconfig
-          make package/libopenssl3/compile -j$(nproc) V=s
+          make package/libs/openssl/compile -j$(nproc) V=s
           make package/luci-sso/compile -j$(nproc) V=s
           make package/index
 
