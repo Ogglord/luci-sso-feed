@@ -18,14 +18,34 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download SDK
+      - name: Set weekly cache key
+        run: echo "WEEK=$(date +%Y-W%V)" >> $GITHUB_ENV
+
+      - name: Cache SDK
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: openwrt-sdk
+          key: sdk-mediatek-filogic-${{ env.WEEK }}
+
+      - name: Download and extract SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           SDK_URL=$(wget -qO- https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/ \
             | grep -o 'openwrt-sdk[^"]*\.tar\.zst' | head -1)
           wget -q "https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/${SDK_URL}"
           tar -xf openwrt-sdk-*.tar.zst
-          SDK_DIR=$(ls -d openwrt-sdk-*/ | head -1)
-          echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
+          mv openwrt-sdk-*/ openwrt-sdk/
+
+      - name: Set SDK_DIR
+        run: echo "SDK_DIR=openwrt-sdk" >> $GITHUB_ENV
+
+      - name: Cache packages feed
+        id: cache-feeds
+        uses: actions/cache@v4
+        with:
+          path: openwrt-sdk/feeds/packages
+          key: feeds-packages-${{ env.WEEK }}
 
       - name: Cache ccache
         uses: actions/cache@v4
