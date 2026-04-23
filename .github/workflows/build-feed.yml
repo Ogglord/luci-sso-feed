@@ -25,26 +25,18 @@ jobs:
         id: cache-sdk
         uses: actions/cache@v4
         with:
-          path: openwrt-sdk
-          key: sdk-pesa-mediatek-filogic-${{ env.WEEK }}
+          path: /tmp/openwrt-sdk-filogic
+          key: sdk-snapshot-mediatek-filogic-${{ env.WEEK }}
 
-      - name: Download SDK from imagebuilder release
+      - name: Download SNAPSHOT SDK
         if: steps.cache-sdk.outputs.cache-hit != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download \
-            --repo Ogglord/openwrt-imagebuilder-mt6000 \
-            --pattern "*sdk*.tar.*" \
-            --output sdk.tar.zst \
-            --clobber \
-            "$(gh release list --repo Ogglord/openwrt-imagebuilder-mt6000 --limit 1 --json tagName --jq '.[0].tagName')"
-          tar -xf sdk.tar.zst
-          mv openwrt-sdk-*/ openwrt-sdk/
-          rm sdk.tar.zst
-
-      - name: Set SDK_DIR
-        run: echo "SDK_DIR=openwrt-sdk" >> $GITHUB_ENV
+          SDK_FILE=$(curl -s https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/ \
+            | grep -o 'openwrt-sdk[^"]*\.tar\.zst' | head -1)
+          wget -q "https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/${SDK_FILE}" -O /tmp/sdk.tar.zst
+          mkdir -p /tmp/openwrt-sdk-filogic
+          tar -xf /tmp/sdk.tar.zst -C /tmp/openwrt-sdk-filogic --strip-components=1
+          rm /tmp/sdk.tar.zst
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -55,20 +47,24 @@ jobs:
 
       - name: Setup signing key
         run: |
-          echo "${{ secrets.APK_SIGNING_KEY }}" > "$SDK_DIR/key-build.pem"
-          openssl ec -pubout -in "$SDK_DIR/key-build.pem" -out "$SDK_DIR/key-build.pem.pub" 2>/dev/null || true
+          echo "${{ secrets.APK_SIGNING_KEY }}" > /tmp/openwrt-sdk-filogic/key-build.pem
+          openssl ec -pubout -in /tmp/openwrt-sdk-filogic/key-build.pem \
+            -out /tmp/openwrt-sdk-filogic/key-build.pem.pub 2>/dev/null || true
 
       - name: Configure feeds
-        working-directory: ${{ env.SDK_DIR }}
+        working-directory: /tmp/openwrt-sdk-filogic
         run: |
           echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
-          ./scripts/feeds update luci_sso
+          ./scripts/feeds update -a
           ./scripts/feeds install -a -p luci_sso
+          ./scripts/feeds install libmbedtls libwolfssl libopenssl libucode ucode \
+            ucode-mod-fs ucode-mod-ubus ucode-mod-uci ucode-mod-math \
+            ucode-mod-uclient ucode-mod-uloop ucode-mod-log liblucihttp-ucode
 
       - name: Build packages
-        working-directory: ${{ env.SDK_DIR }}
+        working-directory: /tmp/openwrt-sdk-filogic
         run: |
-          printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_CCACHE=y\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
+          printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_CCACHE=y\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-mbedtls=m\nCONFIG_PACKAGE_luci-sso-crypto-wolfssl=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
           make defconfig
           make package/luci-sso/compile -j$(nproc) V=s
           make package/index
@@ -76,7 +72,8 @@ jobs:
       - name: Collect artifacts
         run: |
           mkdir -p public/packages/aarch64_cortex-a53/luci_sso
-          cp -r "$SDK_DIR/bin/packages/aarch64_cortex-a53/luci_sso/." public/packages/aarch64_cortex-a53/luci_sso/
+          cp -r /tmp/openwrt-sdk-filogic/bin/packages/aarch64_cortex-a53/luci_sso/. \
+            public/packages/aarch64_cortex-a53/luci_sso/
           mkdir -p public/keys
           cp keys/luci-sso-feed.pub public/keys/
 
