@@ -44,7 +44,8 @@ jobs:
         run: |
           printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
           make defconfig
-          make package/luci-sso/compile -j$(nproc) V=s 2>&1 | tail -100
+          make package/libopenssl/compile -j$(nproc) V=s
+          make package/luci-sso/compile -j$(nproc) V=s
           make package/index
 
       - name: Collect artifacts
