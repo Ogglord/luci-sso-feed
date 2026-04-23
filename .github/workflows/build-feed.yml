@@ -47,9 +47,9 @@ jobs:
 
       - name: Setup signing key
         run: |
-          echo "${{ secrets.APK_SIGNING_KEY }}" > /tmp/openwrt-sdk-filogic/key-build.pem
-          openssl ec -pubout -in /tmp/openwrt-sdk-filogic/key-build.pem \
-            -out /tmp/openwrt-sdk-filogic/key-build.pem.pub 2>/dev/null || true
+          echo "${{ secrets.APK_SIGNING_KEY }}" > /tmp/openwrt-sdk-filogic/private-key.pem
+          openssl ec -in /tmp/openwrt-sdk-filogic/private-key.pem -pubout \
+            > /tmp/openwrt-sdk-filogic/public-key.pem
 
       - name: Configure feeds
         working-directory: /tmp/openwrt-sdk-filogic

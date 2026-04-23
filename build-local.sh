@@ -7,6 +7,9 @@ SDK_ARCHIVE="${SDK_ARCHIVE:-/tmp/openwrt-sdk-mediatek-filogic_gcc-14.3.0_musl.Li
 SDK_DIR="${SDK_DIR:-/tmp/openwrt-sdk-filogic}"
 OUT_DIR="${FEED_DIR}/dist"
 
+# To sign packages with your key, place the private key at ${SDK_DIR}/private-key.pem
+# before running this script. Otherwise the SDK generates a throwaway key.
+
 # Extract SDK
 if [ ! -d "${SDK_DIR}" ]; then
     if [ ! -f "${SDK_ARCHIVE}" ]; then
