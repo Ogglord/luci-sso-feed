@@ -27,6 +27,13 @@ jobs:
           SDK_DIR=$(ls -d openwrt-sdk-*/ | head -1)
           echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-openwrt-aarch64-${{ github.sha }}
+          restore-keys: ccache-openwrt-aarch64-
+
       - name: Setup signing key
         run: |
           echo "${{ secrets.APK_SIGNING_KEY }}" > "$SDK_DIR/key-build.pem"
@@ -36,7 +43,7 @@ jobs:
         working-directory: ${{ env.SDK_DIR }}
         run: |
           ./scripts/feeds update packages
-          ./scripts/feeds install libopenssl
+          ./scripts/feeds install libopenssl3
           echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
           ./scripts/feeds update luci_sso
           ./scripts/feeds install -a -p luci_sso
@@ -44,9 +51,9 @@ jobs:
       - name: Build packages
         working-directory: ${{ env.SDK_DIR }}
         run: |
-          printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_PACKAGE_libopenssl=m\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
+          printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_CCACHE=y\nCONFIG_PACKAGE_libopenssl3=m\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
           make defconfig
-          make package/libopenssl/compile -j$(nproc) V=s
+          make package/libopenssl3/compile -j$(nproc) V=s
           make package/luci-sso/compile -j$(nproc) V=s
           make package/index
 
