@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -33,7 +35,7 @@ jobs:
       - name: Configure feed
         working-directory: ${{ env.SDK_DIR }}
         run: |
-          echo "src-link luci_sso $GITHUB_WORKSPACE/luci-sso" >> feeds.conf.default
+          echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
           ./scripts/feeds update luci_sso
           ./scripts/feeds install -a -p luci_sso
 
