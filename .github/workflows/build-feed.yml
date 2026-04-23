@@ -59,21 +59,20 @@ jobs:
           echo "${{ secrets.APK_SIGNING_KEY }}" > "$SDK_DIR/key-build.pem"
           openssl ec -pubout -in "$SDK_DIR/key-build.pem" -out "$SDK_DIR/key-build.pem.pub" 2>/dev/null || true
 
+      - name: Inject openssl package into SDK
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/openwrt/openwrt.git openwrt-src
+          cd openwrt-src && git sparse-checkout set package/libs/openssl && cd ..
+          mkdir -p "$SDK_DIR/package/libs"
+          cp -r openwrt-src/package/libs/openssl "$SDK_DIR/package/libs/"
+          rm -rf openwrt-src
+
       - name: Configure feeds
         working-directory: ${{ env.SDK_DIR }}
         run: |
-          ./scripts/feeds update packages
-          ./scripts/feeds install libopenssl3
           echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
           ./scripts/feeds update luci_sso
           ./scripts/feeds install -a -p luci_sso
-
-      - name: Inspect SDK openssl
-        working-directory: ${{ env.SDK_DIR }}
-        run: |
-          echo "=== package/libs/openssl ===" && ls package/libs/openssl/ 2>/dev/null || echo "not in SDK core"
-          echo "=== staged headers ===" && ls staging_dir/target-*/usr/include/openssl/ 2>/dev/null | head -5 || echo "not staged"
-          echo "=== staged libs ===" && ls staging_dir/target-*/usr/lib/libssl* staging_dir/target-*/usr/lib/libcrypto* 2>/dev/null || echo "no staged libs"
 
       - name: Build packages
         working-directory: ${{ env.SDK_DIR }}
