@@ -28,7 +28,7 @@ wget -O /etc/apk/keys/luci-sso-feed.pub \
 
 ```sh
 echo "https://ogglord.github.io/openwrt-aarch64-feed/packages/aarch64_cortex-a53/luci_sso" \
-  >> /etc/apk/repositories
+  >> /etc/apk/repositories.d/customfeeds.list
 apk update
 ```
 
