@@ -16,18 +16,12 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache SDK tarball
-        uses: actions/cache@v4
-        with:
-          key: openwrt-sdk-mediatek-filogic-snapshot
-          path: openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-
       - name: Download SDK
         run: |
-          if [ ! -f openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst ]; then
-            wget -q https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-          fi
-          tar -xf openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+          SDK_URL=$(wget -qO- https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/ \
+            | grep -o 'openwrt-sdk[^"]*\.tar\.zst' | head -1)
+          wget -q "https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/${SDK_URL}"
+          tar -xf openwrt-sdk-*.tar.zst
           SDK_DIR=$(ls -d openwrt-sdk-*/ | head -1)
           echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
 
