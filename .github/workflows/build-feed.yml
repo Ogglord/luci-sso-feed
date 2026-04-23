@@ -54,7 +54,7 @@ jobs:
       - name: Configure feeds
         working-directory: /tmp/openwrt-sdk-filogic
         run: |
-          echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
+          grep -q "luci_sso" feeds.conf.default || echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a -p luci_sso
           ./scripts/feeds install libmbedtls libwolfssl libopenssl libucode ucode \
