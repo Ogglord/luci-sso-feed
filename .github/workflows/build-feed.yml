@@ -1,0 +1,88 @@
+name: Build Feed
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache SDK tarball
+        uses: actions/cache@v4
+        with:
+          key: openwrt-sdk-mediatek-filogic-snapshot
+          path: openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+
+      - name: Download SDK
+        run: |
+          if [ ! -f openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst ]; then
+            wget -q https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+          fi
+          tar -xf openwrt-sdk-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+          SDK_DIR=$(ls -d openwrt-sdk-*/ | head -1)
+          echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
+
+      - name: Setup signing key
+        run: |
+          echo "${{ secrets.APK_SIGNING_KEY }}" > "$SDK_DIR/key-build.pem"
+          openssl ec -pubout -in "$SDK_DIR/key-build.pem" -out "$SDK_DIR/key-build.pem.pub" 2>/dev/null || true
+
+      - name: Configure feed
+        working-directory: ${{ env.SDK_DIR }}
+        run: |
+          echo "src-link luci_sso $GITHUB_WORKSPACE/luci-sso" >> feeds.conf.default
+          ./scripts/feeds update luci_sso
+          ./scripts/feeds install -a -p luci_sso
+
+      - name: Build packages
+        working-directory: ${{ env.SDK_DIR }}
+        run: |
+          cat >> .config <<'EOF'
+CONFIG_SIGNED_PACKAGES=y
+CONFIG_PACKAGE_luci-sso=m
+CONFIG_PACKAGE_luci-sso-crypto-openssl=m
+EOF
+          make defconfig
+          make package/luci-sso/compile -j$(nproc) V=s 2>&1 | tail -100
+          make package/index
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p public/packages/aarch64_cortex-a53/luci_sso
+          cp -r "$SDK_DIR/bin/packages/aarch64_cortex-a53/luci_sso/." public/packages/aarch64_cortex-a53/luci_sso/
+          mkdir -p public/keys
+          cp keys/luci-sso-feed.pub public/keys/
+          cat > public/index.html <<'HTMLEOF'
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>luci-sso feed</title></head>
+<body>
+<h1>luci-sso OpenWrt feed</h1>
+<h2>Feed URL</h2>
+<pre>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/packages/aarch64_cortex-a53/luci_sso</pre>
+<h2>Router setup</h2>
+<pre>
+wget -O /etc/apk/keys/luci-sso-feed.pub https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/keys/luci-sso-feed.pub
+echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/packages/aarch64_cortex-a53/luci_sso" >> /etc/apk/repositories
+apk update
+apk add luci-sso
+</pre>
+</body>
+</html>
+HTMLEOF
+
+      - name: Publish
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: true
