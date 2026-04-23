@@ -32,9 +32,11 @@ jobs:
           echo "${{ secrets.APK_SIGNING_KEY }}" > "$SDK_DIR/key-build.pem"
           openssl ec -pubout -in "$SDK_DIR/key-build.pem" -out "$SDK_DIR/key-build.pem.pub" 2>/dev/null || true
 
-      - name: Configure feed
+      - name: Configure feeds
         working-directory: ${{ env.SDK_DIR }}
         run: |
+          ./scripts/feeds update packages
+          ./scripts/feeds install libopenssl
           echo "src-link luci_sso $GITHUB_WORKSPACE" >> feeds.conf.default
           ./scripts/feeds update luci_sso
           ./scripts/feeds install -a -p luci_sso
@@ -42,7 +44,7 @@ jobs:
       - name: Build packages
         working-directory: ${{ env.SDK_DIR }}
         run: |
-          printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
+          printf 'CONFIG_SIGNED_PACKAGES=y\nCONFIG_PACKAGE_libopenssl=m\nCONFIG_PACKAGE_luci-sso=m\nCONFIG_PACKAGE_luci-sso-crypto-openssl=m\n' >> .config
           make defconfig
           make package/libopenssl/compile -j$(nproc) V=s
           make package/luci-sso/compile -j$(nproc) V=s
